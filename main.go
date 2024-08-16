@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"example/api-gin/database"
 	"example/api-gin/types"
-	"example/api-gin/types/constants"
+	"example/api-gin/constants"
 	"fmt"
 	"io"
 	"log"

@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"example/api-gin/database"
-	"example/api-gin/types/constants"
+	"example/api-gin/constants"
 	"fmt"
 	"sync"
 	"time"
