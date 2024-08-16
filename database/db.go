@@ -1,11 +1,13 @@
 package database
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"sync"
 
-	"github.com/joho/godotenv"
+	"time"
+
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -26,39 +28,31 @@ type APIResponse struct {
 }
 
 // db close connection
-func Start(employeeChannel chan Employee, wg *sync.WaitGroup) {
-	err := godotenv.Load()
-	if err != nil {
-		panic("Error loading .env file")
+func Start(employeeChannel chan Employee, wg *sync.WaitGroup, ctx context.Context, syncInterval time.Duration, db *gorm.DB) {
+	
+	defer wg.Done();
+
+	for {
+		select {
+			case <- ctx.Done():
+				{
+					sqlDB, err := db.DB()
+					if err != nil {
+						fmt.Println("Error fetching sql db:", err)
+    			    	return
+    				}
+					sqlDB.Close()
+				}
+			default:
+				dbData := <- employeeChannel;
+				insertData(dbData, db);
+		}
+
+		time.Sleep(syncInterval);
 	}
-	db := dbConnect()
-	
-	dbData := <- employeeChannel;
-
-	// db.Create(&dbData)
-	// Upsert (insert if not exist, or update if exist)
-    err = db.Clauses(clause.OnConflict{
-        Columns:   []clause.Column{{Name: "id"}}, // key column for uniqueness
-        DoUpdates: clause.AssignmentColumns([]string{"employee_name", "employee_salary", "employee_age", "profile_image"}), // columns to update
-    }).Create(&dbData).Error
-
-	if err != nil {
-        fmt.Println("Error upserting user:", err)
-        return
-    }
-
-	sqlDB, err := db.DB()
-	if err != nil {
-		fmt.Println("Error fetching sql db:", err)
-        return
-    }
-	
-	sqlDB.Close()
-
-	wg.Done()
 }
 
-func dbConnect() *gorm.DB {
+func DbConnect() *gorm.DB {
 	// Get configuration from environment variables
 	dbHost := os.Getenv("DB_HOST")
 	dbPort := os.Getenv("DB_PORT")
@@ -82,4 +76,18 @@ func dbConnect() *gorm.DB {
 	// Auto-migrate your model to create the corresponding table
 	db.AutoMigrate(&Employee{})
 	return db
+}
+
+func insertData(dbData Employee, db *gorm.DB) {
+	// db.Create(&dbData)
+	// Upsert (insert if not exist, or update if exist)
+	err := db.Clauses(clause.OnConflict{
+        Columns:   []clause.Column{{Name: "id"}}, // key column for uniqueness
+        DoUpdates: clause.AssignmentColumns([]string{"employee_name", "employee_salary", "employee_age", "profile_image"}), // columns to update
+    }).Create(&dbData).Error
+
+	if err != nil {
+        fmt.Println("Error upserting user:", err)
+        return
+    }
 }

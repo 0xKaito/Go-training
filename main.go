@@ -1,35 +1,36 @@
 package main
 
 import (
+	// "database/sql"
 	"encoding/json"
 	"example/api-gin/database"
+	"example/api-gin/types"
+	"example/api-gin/types/constants"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
-	"sync"
 
 	"example/api-gin/jsonDataBase"
 )
 
-var apiURL = "https://dummy.restapiexample.com/api/v1/employee/1"
-
 func main() {
 
-	var employeeChannel = make(chan database.Employee)
-	var wg sync.WaitGroup
+	var apiConfig = types.ApiConfig{}
+	apiConfig.Initialize();
 
-	wg.Add(1)
+	
+	apiConfig.Wg.Add(1);
+	
+	go getData(apiConfig)
+	go jsonDatabase.Start(&apiConfig)
+	go database.Start(apiConfig.EmployeeChannel, apiConfig.Wg, apiConfig.Ctx, apiConfig.SyncInterval, apiConfig.Db)
 
-	go getData(employeeChannel)
-	go jsonDatabase.Start(employeeChannel)
-	go database.Start(employeeChannel, &wg)
-
-	wg.Wait()
+	apiConfig.Wg.Wait()
 }
 
-func getData(employeeChannel chan database.Employee) {
-	resp, err := http.Get(apiURL)
+func getData(apiConfig types.ApiConfig) {
+	resp, err := http.Get(constants.API_URL)
 	if err != nil {
 		log.Fatalf("Error: %v", fmt.Errorf("error fetching API data: %v", err))
 	}
@@ -46,5 +47,14 @@ func getData(employeeChannel chan database.Employee) {
 		log.Fatalf("Error: %v", fmt.Errorf("error unmarshaling JSON: %v", err))
 	}
 
-	employeeChannel <- data.Data;
+	quit := make(chan error);
+
+	for {
+		select {
+		case apiConfig.EmployeeChannel <- data.Data:
+			continue;
+		case quit <- err:
+			return;
+		}
+	}
 }
