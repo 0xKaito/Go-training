@@ -1,21 +1,27 @@
 package logic
 
 import (
+	contract "example/re/contractCall"
+	"example/re/database"
 	"example/re/store"
+	"fmt"
 	"log"
 	"os"
-	"fmt"
 
 	"github.com/joho/godotenv"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 
 	"context"
 	"crypto/ecdsa"
 	"math/big"
+	"strings"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
@@ -70,7 +76,54 @@ func Start() (*store.Store, *bind.TransactOpts) {
 		log.Fatal(err)
 	}
 
+	go subscribLogs(address, client);
+
 	return instance, auth
+}
+
+func subscribLogs(address common.Address, client *ethclient.Client) {
+	db := database.Start();
+	sqlDB, err := db.DB()
+	if err != nil {
+		fmt.Println("Error fetching sql db:", err)
+        return
+    }
+	
+	query := ethereum.FilterQuery{
+		Addresses: []common.Address{address},
+    }
+	
+	logs := make(chan types.Log)
+    sub, err := client.SubscribeFilterLogs(context.Background(), query, logs)
+    if err != nil {
+		log.Fatal(err)
+    }
+	
+	contractAbi, err := abi.JSON(strings.NewReader(string(store.StoreABI)))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer sqlDB.Close()
+
+    for {
+        select {
+        case err := <-sub.Err():
+            log.Fatal(err)
+        case vLog := <-logs:
+			var registerEvent contract.LogIsRegistered;
+			er := contractAbi.UnpackIntoInterface(&registerEvent, "IsRegistered", vLog.Data);
+			if er != nil {
+				log.Fatal(er);
+			}
+
+			if registerEvent.IsRegistered {
+				database.AddUser(db, registerEvent.NewUser);
+			} else {
+				database.RemoveUser(db, registerEvent.NewUser);
+			}
+        }
+    }
 }
 
 func CheckSignature(signature []byte) common.Address {
