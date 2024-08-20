@@ -43,8 +43,7 @@ func Start(employeeChannel chan Employee, wg *sync.WaitGroup, ctx context.Contex
     				}
 					sqlDB.Close()
 				}
-			default:
-				dbData := <- employeeChannel;
+			case dbData := <- employeeChannel:
 				insertData(dbData, db);
 		}
 

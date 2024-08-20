@@ -10,9 +10,11 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"sync"
 
 	"example/api-gin/jsonDataBase"
 )
+
 
 func main() {
 
@@ -20,16 +22,16 @@ func main() {
 	apiConfig.Initialize();
 
 	
-	apiConfig.Wg.Add(1);
+	apiConfig.Wg.Add(3);
 	
-	go getData(apiConfig)
-	go jsonDatabase.Start(&apiConfig)
+	go getData(apiConfig, apiConfig.Wg)
+	go jsonDatabase.Start(&apiConfig, apiConfig.Wg)
 	go database.Start(apiConfig.EmployeeChannel, apiConfig.Wg, apiConfig.Ctx, apiConfig.SyncInterval, apiConfig.Db)
 
 	apiConfig.Wg.Wait()
 }
 
-func getData(apiConfig types.ApiConfig) {
+func getData(apiConfig types.ApiConfig, wg *sync.WaitGroup) {
 	resp, err := http.Get(constants.API_URL)
 	if err != nil {
 		log.Fatalf("Error: %v", fmt.Errorf("error fetching API data: %v", err))
@@ -48,6 +50,8 @@ func getData(apiConfig types.ApiConfig) {
 	}
 
 	quit := make(chan error);
+
+	defer wg.Done();
 
 	for {
 		select {

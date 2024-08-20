@@ -8,10 +8,11 @@ import (
 	"log"
 	"os"
 	"time"
+	"sync"
 )
 
-func Start(apiConfig *types.ApiConfig) {
-	// Marshal the data back to JSON format (for saving to file)
+func Start(apiConfig *types.ApiConfig, wg *sync.WaitGroup) {
+	defer wg.Done();
 
 	for {
 		select {
