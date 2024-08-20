@@ -9,11 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-type LogIsRegistered struct {
-	NewUser common.Address
-    IsRegistered bool;
-}
-
 func RegisterUser(instance *store.Store, auth *bind.TransactOpts, address common.Address) {
 	result, err := instance.IsRegistered(nil, address)
 	if err != nil {

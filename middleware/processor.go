@@ -1,9 +1,9 @@
-package logic
+package processor
 
 import (
-	contract "example/re/contractCall"
 	"example/re/database"
 	"example/re/store"
+	"example/re/types"
 	"fmt"
 	"log"
 	"os"
@@ -13,7 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
+	coreTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 
 	"context"
@@ -24,8 +24,6 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/crypto"
 )
-
-var data = []byte("unregister")
 
 func Start() (*store.Store, *bind.TransactOpts) {
 	err := godotenv.Load()
@@ -93,7 +91,7 @@ func subscribLogs(address common.Address, client *ethclient.Client) {
 		Addresses: []common.Address{address},
     }
 	
-	logs := make(chan types.Log)
+	logs := make(chan coreTypes.Log)
     sub, err := client.SubscribeFilterLogs(context.Background(), query, logs)
     if err != nil {
 		log.Fatal(err)
@@ -111,7 +109,7 @@ func subscribLogs(address common.Address, client *ethclient.Client) {
         case err := <-sub.Err():
             log.Fatal(err)
         case vLog := <-logs:
-			var registerEvent contract.LogIsRegistered;
+			var registerEvent types.LogIsRegistered;
 			er := contractAbi.UnpackIntoInterface(&registerEvent, "IsRegistered", vLog.Data);
 			if er != nil {
 				log.Fatal(er);
@@ -127,7 +125,7 @@ func subscribLogs(address common.Address, client *ethclient.Client) {
 }
 
 func CheckSignature(signature []byte) common.Address {
-	hash := crypto.Keccak256Hash(data)
+	hash := crypto.Keccak256Hash(types.SignatureData)
 	fmt.Println(hash.Hex())
 
 	// Recover the public key

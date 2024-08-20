@@ -1,17 +1,13 @@
 package database
 
 import (
+	"example/re/types"
 	"os"
 
 	"github.com/ethereum/go-ethereum/common"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
-
-type Registration struct {
-	Id           int    `gorm:"primaryKey" json:"id"`
-	NewUser   common.Address `json:"new_user"`
-}
 
 // db close connection
 func Start() *gorm.DB {
@@ -36,13 +32,13 @@ func Start() *gorm.DB {
 	}
 
 	// Auto-migrate your model to create the corresponding table
-	db.AutoMigrate(&Registration{})
+	db.AutoMigrate(&types.Registration{})
 	return db
 }
 
 func AddUser(db *gorm.DB, address common.Address) {
-    registration := Registration{
-        NewUser: address,
+    registration := types.Registration{
+        NewUser: address.String(),
     }
 
     if err := db.Create(&registration).Error; err != nil {
@@ -50,7 +46,7 @@ func AddUser(db *gorm.DB, address common.Address) {
     }
 }
 func RemoveUser(db *gorm.DB, address common.Address) {
-    if err := db.Where("new_user = ?", address.Hex()).Delete(&Registration{}).Error; err != nil {
+    if err := db.Where("new_user = ?", address.Hex()).Delete(&types.Registration{}).Error; err != nil {
         panic("Failed to remove user")
     }
 }
