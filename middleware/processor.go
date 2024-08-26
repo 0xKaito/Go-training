@@ -1,31 +1,24 @@
 package processor
 
 import (
-	"example/re/database"
 	"example/re/store"
-	"example/re/types"
-	"fmt"
 	"log"
 	"os"
 
 	"github.com/joho/godotenv"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	coreTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 
 	"context"
 	"crypto/ecdsa"
 	"math/big"
-	"strings"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-func Start() (*store.Store, *bind.TransactOpts) {
+func Start() (*store.Store, *bind.TransactOpts, *ethclient.Client, string) {
 	err := godotenv.Load()
 	if err != nil {
 		panic("Error loading .env file")
@@ -74,69 +67,7 @@ func Start() (*store.Store, *bind.TransactOpts) {
 		log.Fatal(err)
 	}
 
-	go subscribLogs(address, client);
+	go SubscribLogs(address, client);
 
-	return instance, auth
-}
-
-func subscribLogs(address common.Address, client *ethclient.Client) {
-	db := database.Start();
-	sqlDB, err := db.DB()
-	if err != nil {
-		fmt.Println("Error fetching sql db:", err)
-        return
-    }
-	
-	query := ethereum.FilterQuery{
-		Addresses: []common.Address{address},
-    }
-	
-	logs := make(chan coreTypes.Log)
-    sub, err := client.SubscribeFilterLogs(context.Background(), query, logs)
-    if err != nil {
-		log.Fatal(err)
-    }
-	
-	contractAbi, err := abi.JSON(strings.NewReader(string(store.StoreABI)))
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	defer sqlDB.Close()
-
-    for {
-        select {
-        case err := <-sub.Err():
-            log.Fatal(err)
-        case vLog := <-logs:
-			var registerEvent types.LogIsRegistered;
-			er := contractAbi.UnpackIntoInterface(&registerEvent, "IsRegistered", vLog.Data);
-			if er != nil {
-				log.Fatal(er);
-			}
-
-			if registerEvent.IsRegistered {
-				database.AddUser(db, registerEvent.NewUser);
-			} else {
-				database.RemoveUser(db, registerEvent.NewUser);
-			}
-        }
-    }
-}
-
-func CheckSignature(signature []byte) common.Address {
-	hash := crypto.Keccak256Hash(types.SignatureData)
-	fmt.Println(hash.Hex())
-
-	// Recover the public key
-	pubKey, err := crypto.SigToPub(hash.Bytes(), signature)
-	if err != nil {
-		log.Fatalf("Failed to recover public key: %v", err)
-	}
-
-	// Get the signer's address
-	recoveredAddr := crypto.PubkeyToAddress(*pubKey)
-	fmt.Printf("Recovered address: %s\n", recoveredAddr.Hex())
-
-	return recoveredAddr;
+	return instance, auth, client, contractAddress
 }
