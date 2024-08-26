@@ -27,9 +27,19 @@ func Start(config types.Config) {
 
 	router.GET("/createSignature/:privateKey", func(c *gin.Context) {
 		userPrivateKey := c.Params.ByName("privateKey")
-		sig := processor.CreateDataAndSign(config, userPrivateKey);
-		fmt.Println("signature", sig);
+		sig, userAddress := processor.CreateDataAndSign(config, userPrivateKey);
+		fmt.Println("signature", hexutil.Encode(sig));
+		fmt.Println("user address", userAddress);
 		c.IndentedJSON(http.StatusAccepted, sig)
+	})
+
+	router.POST("/createSignature/:privateKey/:signature", func(c *gin.Context) {
+		userPrivateKey := c.Params.ByName("privateKey")
+		signature := c.Params.ByName("signature");
+
+		recoveredAddress := processor.VerifySignature(config, signature, userPrivateKey);
+		contract.RemoveUser(config.Instance,config.Auth, recoveredAddress)
+		c.IndentedJSON(http.StatusAccepted, 1)
 	})
 
 	router.POST("/unregister/:address", func(c *gin.Context) {

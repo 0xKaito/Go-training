@@ -8,6 +8,7 @@ import (
 	"log"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/signer/core/apitypes"
@@ -30,7 +31,7 @@ func CheckSignature(signature []byte) common.Address {
 	return recoveredAddr;
 }
 
-func CreateDataAndSign(config types.Config, privateKEY string) ([]byte) {
+func CreateDataAndSign(config types.Config, privateKEY string) ([]byte, common.Address) {
 	privateKey, err := crypto.HexToECDSA(privateKEY)
 	if err != nil {
 		log.Fatal(err)
@@ -49,12 +50,12 @@ func CreateDataAndSign(config types.Config, privateKEY string) ([]byte) {
 	}
 
 	dataType := CreatTypedData(config.ContractAddress, config.ChainId, user.Hex(), int64(nonce));
-	sig, err := SignTypedData(dataType, privateKey);
+	sig, err := signTypedData(dataType, privateKey);
 	if err != nil {
 		log.Fatalf("Failed to recover public key: %v", err)
 	}
 
-	return sig;
+	return sig, user;
 }
 
 
@@ -87,7 +88,7 @@ func CreatTypedData(verifyingContract string, chainId int64, user string, nonce 
 	return typeddata
 }
 
-func SignTypedData(typedData apitypes.TypedData, privateKey *ecdsa.PrivateKey) (sig []byte , err error) {
+func signTypedData(typedData apitypes.TypedData, privateKey *ecdsa.PrivateKey) (sig []byte , err error) {
 	domainSeparator, err := typedData.HashStruct("EIP712Domain", typedData.Domain.Map())
 	if err != nil {
 		return sig, err
@@ -105,4 +106,14 @@ func SignTypedData(typedData apitypes.TypedData, privateKey *ecdsa.PrivateKey) (
 
 	sig[64] += 27
 	return
+}
+
+func VerifySignature(config types.Config, signature string, userPrivateKey string) (common.Address) {
+	sig, userAddress := CreateDataAndSign(config, userPrivateKey);
+
+	if hexutil.Encode(sig) != signature {
+		log.Fatal("Signature verification failed");
+	}
+
+	return userAddress;
 }
