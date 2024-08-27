@@ -4,8 +4,6 @@ import (
 	contract "example/re/contractCall"
 	processor "example/re/middleware"
 	"example/re/types"
-	"fmt"
-	"log"
 
 	"net/http"
 
@@ -21,42 +19,70 @@ func Start(config types.Config) {
 
 	router.POST("/register/:address", func(c *gin.Context) {
 		userAddress := c.Params.ByName("address")
-		contract.RegisterUser(config.Instance,config.Auth, common.HexToAddress(userAddress))
+		err := contract.RegisterUser(config.Instance,config.Auth, common.HexToAddress(userAddress))
+		if err != nil {
+			c.IndentedJSON(http.StatusBadRequest, err)
+		}
+
 		c.IndentedJSON(http.StatusAccepted, 1)
 	})
 
-	router.GET("/createSignature/:privateKey", func(c *gin.Context) {
-		userPrivateKey := c.Params.ByName("privateKey")
-		sig, userAddress := processor.CreateDataAndSign(config, userPrivateKey);
-		fmt.Println("signature", hexutil.Encode(sig));
-		fmt.Println("user address", userAddress);
-		c.IndentedJSON(http.StatusAccepted, sig)
-	})
+	// to test signature validation
 
-	router.POST("/createSignature/:privateKey/:signature", func(c *gin.Context) {
-		userPrivateKey := c.Params.ByName("privateKey")
-		signature := c.Params.ByName("signature");
+	// router.GET("/createSignature/:privateKey", func(c *gin.Context) {
+	// 	userPrivateKey := c.Params.ByName("privateKey")
+	// 	sig, userAddress := processor.CreateDataAndSign(config, userPrivateKey);
+	// 	fmt.Println("signature", hexutil.Encode(sig));
+	// 	fmt.Println("user address", userAddress);
+	// 	c.IndentedJSON(http.StatusAccepted, sig)
+	// })
 
-		recoveredAddress := processor.VerifySignature(config, signature, userPrivateKey);
-		contract.RemoveUser(config.Instance,config.Auth, recoveredAddress)
+	router.POST("/removeAddress/:address/:signature", func(c *gin.Context) {
+		userAddress := c.Params.ByName("address");
+		signature, err := hexutil.Decode(c.Params.ByName("signature"));
+		if err != nil {
+			c.IndentedJSON(http.StatusBadRequest, err)
+		}
+
+		err = processor.VerifySignature(config, signature, userAddress);
+		if err != nil {
+			c.IndentedJSON(http.StatusForbidden, err)
+		}
+
+		err = contract.RemoveUser(config.Instance,config.Auth, common.HexToAddress(userAddress));
+		if err != nil {
+			c.IndentedJSON(http.StatusBadRequest, err)
+		}
+
 		c.IndentedJSON(http.StatusAccepted, 1)
 	})
 
 	router.POST("/unregister/:address", func(c *gin.Context) {
 		userAddress := c.Params.ByName("address")
-		contract.UnRegister(config.Instance,config.Auth, common.HexToAddress(userAddress))
+		err := contract.UnRegister(config.Instance,config.Auth, common.HexToAddress(userAddress))
+		if err != nil {
+			c.IndentedJSON(http.StatusBadRequest, err)
+		}
+
 		c.IndentedJSON(http.StatusAccepted, 1)
 	})
 
 	router.POST("/remove/:signature", func(c *gin.Context) {
 		signature, err := hexutil.Decode(c.Params.ByName("signature"));
 		if err != nil {
-			log.Fatal(err);
+			c.IndentedJSON(http.StatusBadRequest, err)
 		}
 
-		recoveredAddress := processor.CheckSignature(signature);
+		recoveredAddress, err := processor.CheckSignature(signature);
+		if err != nil {
+			c.IndentedJSON(http.StatusForbidden, err)
+		}
 	
-		contract.RemoveUser(config.Instance,config.Auth, recoveredAddress)
+		err = contract.RemoveUser(config.Instance,config.Auth, recoveredAddress)
+		if err != nil {
+			c.IndentedJSON(http.StatusBadRequest, err)
+		}
+
 		c.IndentedJSON(http.StatusAccepted, 1)
 	})
 

@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/ethereum/go-ethereum/common"
+	"errors"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -36,17 +37,22 @@ func Start() *gorm.DB {
 	return db
 }
 
-func AddUser(db *gorm.DB, address common.Address) {
+func AddUser(db *gorm.DB, address common.Address) error {
     registration := types.Registration{
         NewUser: address.String(),
     }
 
     if err := db.Create(&registration).Error; err != nil {
-        panic("Failed to add user")
+        return errors.New("faild to create registration");
     }
+
+	return nil;
 }
-func RemoveUser(db *gorm.DB, address common.Address) {
+
+func RemoveUser(db *gorm.DB, address common.Address) error {
     if err := db.Where("new_user = ?", address.Hex()).Delete(&types.Registration{}).Error; err != nil {
-        panic("Failed to remove user")
+        return errors.New("faild to remove user");
     }
+
+	return nil;
 }
