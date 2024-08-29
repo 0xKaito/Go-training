@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package app;
+option go_package = "../v1";
+
+message Tx {
+    string sender = 1;
+    string recipient = 2;
+    int64 amount = 3;
+}
+
+message State {
+    map<string, int64> balances = 1;
+}
+
+message ResponseQuery {
+    string value = 1;
+}
